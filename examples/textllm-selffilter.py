@@ -9,6 +9,7 @@ from sota_retico import SotaSpeakerModule
 from retico_whisperasr import WhisperASRModule
 from retico_speechbraintts import  SpeechBrainTTSModule
 import retico_core
+import torch
 
 SOTA_IP = "192.168.0.23"
 # SOTA_IP = "10.151.63.71"
