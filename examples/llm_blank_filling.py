@@ -1,6 +1,11 @@
 from retico_huggingfacelm import HuggingfaceLMClient
+import torch
 
-_llm_client = HuggingfaceLMClient.quick_from_checkpoint("HuggingFaceTB/SmolLM2-1.7B-Instruct", device="cuda:0", temperature=0.7)
+if torch.backends.mps.is_available():
+    device = "mps"
+else:
+    device = "cpu"
+_llm_client = HuggingfaceLMClient.quick_from_checkpoint("HuggingFaceTB/SmolLM2-1.7B-Instruct", device=device, temperature=0.7)
 _llm_client.set_system_role("Determine the requested attribute from the given text. "
     "Output ONLY the requested value, or <UNKNOWN> if it is not mentioned. ")
 

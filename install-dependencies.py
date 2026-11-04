@@ -2,10 +2,6 @@
 import subprocess
 import sys
 
-### SET THIS to false to rely on CPU builds
-useGPU = True
-
-gpuSuffix = "+cu121" if useGPU else ""
 
 def install(packagelist, flags=None):
     flags = flags or []
@@ -14,8 +10,13 @@ def install(packagelist, flags=None):
 
 install(["numpy==1.26.4","transformers==4.57.6"])     # should already be satisfied with package install
 
-install(["torch==2.3.1"+gpuSuffix, "torchaudio==2.3.1"+gpuSuffix, "torchvision==0.18.1"+gpuSuffix],
-        flags="--index-url https://download.pytorch.org/whl/cu121".split())
+
+install([
+    "torch==2.3.1",
+    "torchaudio==2.3.1",
+    "torchvision==0.18.1"
+])
+
 
 install([
         "retico-core @ git+https://github.com/retico-team/retico-core@39e9957ee008b3e13ab4248040929f29056fb4ad",

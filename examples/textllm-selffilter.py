@@ -11,8 +11,8 @@ from retico_speechbraintts import  SpeechBrainTTSModule
 import retico_core
 import torch
 
-SOTA_IP = "192.168.0.23"
-# SOTA_IP = "10.151.63.71"
+# SOTA_IP = "192.168.0.23"
+SOTA_IP = "10.151.63.77"
 HTTP_PORT = "8080"
 MIC_UDP_PORT = 52001
 SPEAKER_UDP_PORT = 52002
@@ -33,8 +33,10 @@ tts_module = SpeechBrainTTSModule(language="en")
 print("done.")
 
 print("Starting hugging face lm...",end="")
-device = "cuda:0"
-# device = "cpu"
+if torch.backends.mps.is_available():
+    device = "mps"
+else:
+    device = "cpu"
 # llm_client = HuggingfaceLMClient.quick_from_checkpoint("HuggingFaceTB/SmolLM2-135M-Instruct", device=device, temperature=0.7)  # very small, quick, good for small inferences. not a healthy chatbot. Funny.
 llm_client = HuggingfaceLMClient.quick_from_checkpoint("HuggingFaceTB/SmolLM2-1.7B-Instruct", device=device, temperature=0.7)  # much more capable, but hard on weaker GPUs/cpus
 llm_module = HuggingfaceLMModule(llm_client)

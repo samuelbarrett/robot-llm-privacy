@@ -10,7 +10,7 @@ from retico_speechbraintts import  SpeechBrainTTSModule
 import retico_core
 
 # SOTA_IP = "192.168.0.23"
-SOTA_IP = "10.151.63.71"
+SOTA_IP = "10.151.63.77"
 HTTP_PORT = "8080"
 MIC_UDP_PORT = 52001
 SPEAKER_UDP_PORT = 52002
