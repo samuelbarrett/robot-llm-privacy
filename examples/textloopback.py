@@ -1,7 +1,7 @@
 from retico_core.audio import *
 from sota_thinclient import ConnectionManager
 
-from examples.debug_utils import text_candidate_callback
+from debug_utils import text_candidate_callback
 from sota_retico import SotaMicrophoneModule, SotaSpeakerModule
 
 from retico_whisperasr import WhisperASRModule

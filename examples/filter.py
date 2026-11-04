@@ -1,11 +1,5 @@
-import Levenshtein
 from retico_core import AbstractModule, UpdateMessage, UpdateType
 from retico_core.audio import AudioIU
-from retico_core.text import SpeechRecognitionIU
-from retico_core.text import TextIU
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 import numpy as np
 

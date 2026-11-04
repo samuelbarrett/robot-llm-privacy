@@ -2,8 +2,8 @@ from sota_thinclient import ConnectionManager
 from retico_huggingfacelm.huggingface_lm_module import HuggingfaceLMModule
 from retico_huggingfacelm.huggingface_lm_client import HuggingfaceLMClient
 
-from examples.debug_utils import text_candidate_callback
-from examples.filter import AudioGatingModule
+from debug_utils import text_candidate_callback
+from filter import AudioGatingModule
 from sota_retico import SotaMicrophoneModule
 from sota_retico import SotaSpeakerModule
 from retico_whisperasr import WhisperASRModule
