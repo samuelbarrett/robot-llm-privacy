@@ -1,4 +1,3 @@
-import Levenshtein
 from retico_core import AbstractModule, UpdateMessage, UpdateType
 from retico_core import abstract
 from retico_core.text import SpeechRecognitionIU
