@@ -19,7 +19,7 @@ install([
 
 
 install([
-        "retico-core @ git+https://github.com/retico-team/retico-core@39e9957ee008b3e13ab4248040929f29056fb4ad",
+        "retico-core @ git+https://github.com/retico-team/retico-core@ed4ba19f1b4d3f9f3f4b51c9addb0a49c67d600d",
         "retico-huggingfacelm @ git+https://github.com/youngmb/retico-huggingfacelm",
         "retico-speechbraintts @ git+https://github.com/youngmb/retico-speechbraintts@course-fix-cpu",
         "retico-whisperasr @ git+https://github.com/retico-team/retico-whisperasr@cf568c2a8b746558ddd71b2bf6cb58ba1141d175",
