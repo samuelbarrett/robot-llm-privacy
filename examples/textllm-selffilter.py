@@ -2,8 +2,8 @@ from sota_thinclient import ConnectionManager
 from retico_huggingfacelm.huggingface_lm_module import HuggingfaceLMModule
 from retico_huggingfacelm.huggingface_lm_client import HuggingfaceLMClient
 
-from debug_utils import text_candidate_callback
-from filter import AudioGatingModule
+from sota_retico.debug_utils import text_candidate_callback
+from sota_retico.audio_filter import AudioGatingModule
 from sota_retico import SotaMicrophoneModule
 from sota_retico import SotaSpeakerModule
 from retico_whisperasr import WhisperASRModule
@@ -11,7 +11,7 @@ from retico_speechbraintts import  SpeechBrainTTSModule
 import retico_core
 import torch
 
-# SOTA_IP = "192.168.0.23"
+# SOTA_IP = "10.0.0.178"
 SOTA_IP = "10.151.63.77"
 HTTP_PORT = "8080"
 MIC_UDP_PORT = 52001

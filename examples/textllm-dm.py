@@ -3,8 +3,8 @@ from retico_huggingfacelm.huggingface_lm_module import HuggingfaceLMModule
 from retico_huggingfacelm.huggingface_lm_client import HuggingfaceLMClient
 from sympy.physics.units import temperature
 
-from debug_utils import text_candidate_callback
-from filter import AudioGatingModule
+from sota_retico.debug_utils import text_candidate_callback
+from sota_retico.audio_filter import AudioGatingModule
 from sota_retico import SotaMicrophoneModule
 from sota_retico import SotaSpeakerModule
 from retico_whisperasr import WhisperASRModule

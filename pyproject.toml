@@ -23,6 +23,7 @@ dependencies = [
     ### Our own sota thinclient
     "sota_thinclient @ git+https://github.com/youngmb/sota_thinclient",
     "setuptools<81",
+    "retico-ollama @ git+https://github.com/samuelbarrett/retico-ollama.git"
 ]
 
 [project.optional-dependencies]
