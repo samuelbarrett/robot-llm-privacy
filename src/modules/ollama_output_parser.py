@@ -25,25 +25,23 @@ class OllamaOutputParser(AbstractModule):
         return TextIU
 
     def process_update(self, update_message):
-        downstream_message = UpdateMessage()
-        response_complete = False
-        
+        """
+        This module conforms to retico-ollama's response structure:
+         - one full response per update_message
+         - once we hit a COMMIT IU, we know the message
+         - Append one COMMIT to the list of ADD IU accumulated and send downstream
+        """
         for iu, ut in update_message:
-            if isinstance(iu, ResponseEndIU):
-                # end of LLM response, commit current_output
-                response_complete = True
-                continue
-            elif isinstance(iu, TextIU):
+            if isinstance(iu, TextIU):
                 if ut == UpdateType.ADD:
                     self.current_output.append(iu)
-                    downstream_message.add_iu(iu, UpdateType.ADD)
                 elif ut == UpdateType.REVOKE:
                     self.revoke(iu)
-                    downstream_message.add_iu(iu, UpdateType.REVOKE)
-                
-        if response_complete:
-            for iu in self.current_output:
-                iu.committed = True
-                downstream_message.add_iu(iu, UpdateType.COMMIT)
-            self.current_output = []
-        return downstream_message
+                elif ut == UpdateType.COMMIT:
+                    um = UpdateMessage()
+                    for current_iu in self.current_output:
+                        um.add_iu(current_iu, UpdateType.ADD)
+                    um.add_iu(iu, UpdateType.COMMIT)
+                    self.append(um)
+                    self.current_output = []
+                    break

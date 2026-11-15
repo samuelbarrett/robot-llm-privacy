@@ -51,7 +51,7 @@ class DialogManagerModule(AbstractModule):
                     f"{self.name()}: Received ADD IU: {iu.text}, severity: {iu.get_severity()}"
                 )
                 self.current_input.append(iu)
-                if iu.has_disclosure():
+                if iu.has_disclosure() and not self.disclosure_handling:
                     self.interrupt_and_redirect(severity=iu.get_severity())
                     self.disclosure_handling = True
             if ut == UpdateType.COMMIT:
