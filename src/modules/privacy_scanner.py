@@ -4,6 +4,8 @@ import threading
 
 from retico_core import AbstractModule, UpdateMessage, UpdateType
 from retico_core.text import SpeechRecognitionIU, TextIU
+from pydantic import BaseModel
+from ollama import chat
 
 from classes.privacy_text_iu import PrivacyTextIU
 
@@ -12,7 +14,13 @@ PrivacyScannerModule
 
 Parse SpeechRecognitionIU objects for potential privacy-sensitive information using an LLM.
 If a private disclosure is detected, the module flags this for downstream modules to handle appropriately.
+
+Supports two modes of detection:
+ - keyword: keyword-based detection from a list of known/decided privacy-sensitive words
+ - llm: uses an LLM to infer potential disclosures of private information
 """
+
+
 POLL_INTERVAL = 0.1  # seconds
 SCAN_CHUNK_MAX_SIZE = 8  # max IUs to send to the LLM at once
 PRIVACY_VIOLATION_WORDS = [
@@ -26,8 +34,11 @@ PRIVACY_VIOLATION_WORDS = [
 
 
 class PrivacyScannerModule(AbstractModule):
-    def __init__(self, **kwargs):
+    def __init__(self, model: str, system_prompt: str, mode: str = "llm", **kwargs):
         super().__init__(**kwargs)
+        self.mode = mode
+        self.model = model
+        self.system_prompt = system_prompt
         self.scan_queue = queue.Queue()
         self.end_of_utterance_received = False
         self.list_lock = threading.Lock()
@@ -51,7 +62,7 @@ class PrivacyScannerModule(AbstractModule):
     @staticmethod
     def output_iu():
         return PrivacyTextIU
-    
+
     def run(self):
         super().run()
         self.worker_thread.start()
@@ -75,7 +86,7 @@ class PrivacyScannerModule(AbstractModule):
     def worker_loop(self):
         batch = []
         end_of_utterance = False
-        
+
         while not self._stop_event.is_set():
             try:
                 iu, ut = self.scan_queue.get(timeout=POLL_INTERVAL)
@@ -85,25 +96,49 @@ class PrivacyScannerModule(AbstractModule):
                     batch.append((iu, ut))
 
                 if end_of_utterance or len(batch) >= SCAN_CHUNK_MAX_SIZE:
-                    disclosure_detected = self.disclosure_scan(batch)
+                    if self.mode == "llm":
+                        disclosure_detected = self.disclosure_scan_llm(batch)
+                    elif self.mode == "keyword":
+                        disclosure_detected = self.disclosure_scan_text(batch)
+                    else:
+                        raise ValueError(
+                            f"Unknown mode: {self.mode}. Acceptablel values are llm or keyword."
+                        )
                     um = self.build_update_message(batch, disclosure_detected)
-                    
+
                     if end_of_utterance:
                         end_of_utterance = False
                         um.add_iu(self.create_iu(iu), UpdateType.COMMIT)
-                    
+
                     self.append(um)
                     batch = []
             except queue.Empty:
                 continue
-                
-    def disclosure_scan(self, batch) -> bool:
+
+    def disclosure_scan_text(self, batch) -> bool:
         # Simple keyword-based detection for privacy-sensitive information
         text = " ".join([iu.text for iu, ut in batch if ut == UpdateType.ADD])
         for word in PRIVACY_VIOLATION_WORDS:
             if word in text.lower():
                 return True
         return False
+
+    def disclosure_scan_llm(self, batch) -> bool:
+        # use ollama chat API to detect privacy-sensitive information in the text
+        text = " ".join([iu.text for iu, ut in batch if ut == UpdateType.ADD])
+        response = chat(
+            model=self.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": self.system_prompt,
+                },
+                {"role": "user", "content": text},
+            ],
+            format=PrivacyResult.model_json_schema(),
+        )
+        result = PrivacyResult.model_validate_json(response.message.content)
+        return result.has_privacy_violation
 
     def build_update_message(self, batch, disclosure_detected) -> UpdateMessage:
         um = UpdateMessage()
@@ -117,7 +152,14 @@ class PrivacyScannerModule(AbstractModule):
             )
             um.add_iu(update_iu, ut)
         return um
-    
+
     def shutdown(self):
         self._stop_event.set()
         super().shutdown()
+
+
+class PrivacyResult(BaseModel):
+    """
+    Simple pydantic class for LLM structured output
+    """
+    has_privacy_violation: bool

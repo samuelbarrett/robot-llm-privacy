@@ -1,5 +1,6 @@
 from retico_core import AbstractModule, UpdateMessage, UpdateType
 from retico_core.text import TextIU
+from sota_thinclient import ConnectionManager
 
 from classes.conditional_update_message import ConditionalUpdateMessage
 from classes.privacy_text_iu import PrivacyTextIU
@@ -21,8 +22,9 @@ PROMPT_HANDLE_DISCLOSURE = (
 
 
 class DialogManagerModule(AbstractModule):
-    def __init__(self, llm_path: str, tts_path: str, **kwargs):
+    def __init__(self, sota: ConnectionManager, llm_path: str, tts_path: str, **kwargs):
         super().__init__()
+        self.sota = sota
         self.llm_path = llm_path
         self.tts_path = tts_path
         self.disclosure_handling = False
@@ -43,6 +45,10 @@ class DialogManagerModule(AbstractModule):
     @staticmethod
     def output_iu():
         return TextIU
+    
+    def run(self):
+        super().run()
+        self.send_message("Hi there! How are you doing today?", self.tts_path)
 
     def process_update(self, update_message: UpdateMessage):
         for iu, ut in update_message:
