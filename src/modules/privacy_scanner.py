@@ -43,7 +43,6 @@ class PrivacyScannerModule(AbstractModule):
         self.debug = debug
         self.scan_queue = queue.Queue()
         self.end_of_utterance_received = False
-        self.iu_revocation_lock = threading.Lock() # lock read/write of revoke state
         self.worker_thread = threading.Thread(
             target=self.worker_loop, args=(), daemon=True
         )
@@ -80,42 +79,34 @@ class PrivacyScannerModule(AbstractModule):
                 self.scan_queue.put((iu, ut))
                 self.end_of_utterance_received = False
             elif ut == UpdateType.REVOKE:
-                with self.iu_revocation_lock:
-                    self.revoke(iu, remove_revoked=False)
+                self.revoke(iu)
             elif ut == UpdateType.COMMIT:
                 if not self.end_of_utterance_received:
                     self.scan_queue.put((iu, ut))
                     self.end_of_utterance_received = True
-                    self.current_input.clear()
 
     def worker_loop(self):
         batch = []
-        end_of_utterance = False
-
+        disclosure_detected = False
+        
         while not self._stop_event.is_set():
+            end_of_utterance = False
             try:
                 iu, ut = self.scan_queue.get(timeout=POLL_INTERVAL)
                 if ut == UpdateType.COMMIT:
                     end_of_utterance = True
-                else:
+                elif ut == UpdateType.ADD:
                     batch.append((iu, ut))
-
-                if end_of_utterance or len(batch) >= SCAN_CHUNK_MAX_SIZE:
-                    um = UpdateMessage()
-                    with self.iu_revocation_lock:
-                        # only process unrevoked ADD IUs
+                    if end_of_utterance or len(batch) >= SCAN_CHUNK_MAX_SIZE:
+                        # only process unrevoked IUs
                         process_batch = [(iu, ut) for iu, ut in batch if (not iu.revoked and ut == UpdateType.ADD)]
-                    
-                    if process_batch:
-                        disclosure_detected = self.disclosure_scan_llm(process_batch) if self.mode == "llm" else self.disclosure_scan_text(process_batch)
-                        um = self.populate_update_message(um, batch, disclosure_detected) # include revoked IUs in update message
-
-                    if end_of_utterance:
-                        end_of_utterance = False
-                        um.add_iu(self.create_iu(iu), UpdateType.COMMIT)
-
-                    self.append(um)
-                    batch = []
+                        
+                        if process_batch:
+                            disclosure_detected = self.disclosure_scan_llm(process_batch) if self.mode == "llm" else self.disclosure_scan_text(process_batch)
+                        batch = []
+                if end_of_utterance:
+                    self.send_update_message(disclosure=disclosure_detected)
+                    disclosure_detected = False
             except queue.Empty:
                 continue
 
@@ -149,18 +140,23 @@ class PrivacyScannerModule(AbstractModule):
         result = PrivacyResult.model_validate_json(response.message.content)
         return result.has_privacy_violation
 
-    def populate_update_message(self, um: UpdateMessage, batch: list, disclosure_detected: bool) -> UpdateMessage:
-        for iu, ut in batch:
+    def send_update_message(self, disclosure: bool):
+        um = UpdateMessage()
+        for i, iu in enumerate(self.current_input):
             update_iu: PrivacyTextIU = self.create_iu(iu)
             update_iu.set_text(iu.text)
-            if ut == UpdateType.ADD and not update_iu.revoked:
-                update_iu.set_severity(
-                    PrivacyTextIU.DisclosureSeverity.LOW
-                    if disclosure_detected
-                    else PrivacyTextIU.DisclosureSeverity.NONE
-                )
-            um.add_iu(update_iu, ut)
-        return um
+            update_iu.set_severity(
+                PrivacyTextIU.DisclosureSeverity.LOW
+                if disclosure
+                else PrivacyTextIU.DisclosureSeverity.NONE
+            )
+            um.add_iu(update_iu, UpdateType.ADD)
+            
+            if i == len(self.current_input) - 1:
+                blank_commit_iu = self.create_iu()
+                blank_commit_iu.set_text("")
+                um.add_iu(blank_commit_iu, UpdateType.COMMIT)
+        self.append(um)
 
     def shutdown(self):
         self._stop_event.set()

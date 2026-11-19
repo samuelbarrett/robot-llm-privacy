@@ -21,7 +21,7 @@ SPEAKER_UDP_PORT = 52002
 MIC_BUFFER_MS = 20
 AUDIO_GATE_SLEEP_INTERVAL = 0.001
 DIALOG_MODEL = "llama3.2:1b"
-PRIVACY_SCANNER_MODEL = "qwen3:0.6b"
+PRIVACY_SCANNER_MODEL = "gemma3:270m"
 DIALOG_SYSTEM_ROLE = Path("config/dialog_system_role.txt").read_text(encoding="utf-8").strip()
 PRIVACY_SCANNER_SYSTEM_ROLE = Path("config/privacy_scanner_system_role.txt").read_text(encoding="utf-8").strip()
 
