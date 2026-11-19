@@ -43,6 +43,7 @@ class PrivacyScannerModule(AbstractModule):
         self.debug = debug
         self.scan_queue = queue.Queue()
         self.end_of_utterance_received = False
+        self.emitted_ius = {}
         self.iu_revocation_lock = threading.Lock() # lock read/write of revoke state
         self.worker_thread = threading.Thread(
             target=self.worker_loop, args=(), daemon=True
@@ -82,6 +83,11 @@ class PrivacyScannerModule(AbstractModule):
             elif ut == UpdateType.REVOKE:
                 with self.iu_revocation_lock:
                     self.revoke(iu, remove_revoked=False)
+                previously_emitted_iu = self.emitted_ius.pop(iu.iuid, None)
+                if previously_emitted_iu:
+                    um = UpdateMessage()
+                    um.add_iu(previously_emitted_iu, UpdateType.REVOKE)
+                    self.append(um)
             elif ut == UpdateType.COMMIT:
                 if not self.end_of_utterance_received:
                     self.scan_queue.put((iu, ut))
@@ -108,11 +114,16 @@ class PrivacyScannerModule(AbstractModule):
                     
                     if process_batch:
                         disclosure_detected = self.disclosure_scan_llm(process_batch) if self.mode == "llm" else self.disclosure_scan_text(process_batch)
-                        um = self.populate_update_message(um, batch, disclosure_detected) # include revoked IUs in update message
+                        um = self.populate_update_message(um, process_batch, disclosure_detected) # include revoked IUs in update message
 
                     if end_of_utterance:
                         end_of_utterance = False
-                        um.add_iu(self.create_iu(iu), UpdateType.COMMIT)
+                        commit_iu = self.create_iu()
+                        commit_iu.set_text("")
+                        um.add_iu(commit_iu, UpdateType.COMMIT)
+                    
+                    text = " ".join([iu.text for iu, ut in batch])
+                    print(f"{self.name()}: sent message: '{text}'")
 
                     self.append(um)
                     batch = []
@@ -153,13 +164,14 @@ class PrivacyScannerModule(AbstractModule):
         for iu, ut in batch:
             update_iu: PrivacyTextIU = self.create_iu(iu)
             update_iu.set_text(iu.text)
-            if ut == UpdateType.ADD and not update_iu.revoked:
+            if ut == UpdateType.ADD and not iu.revoked:
                 update_iu.set_severity(
                     PrivacyTextIU.DisclosureSeverity.LOW
                     if disclosure_detected
                     else PrivacyTextIU.DisclosureSeverity.NONE
                 )
             um.add_iu(update_iu, ut)
+            self.emitted_ius[iu.iuid] = update_iu
         return um
 
     def shutdown(self):
