@@ -8,7 +8,6 @@ class PrivacyTextIU(TextIU):
     class DisclosureSeverity(StrEnum):
         NONE = "none"
         LOW = "low"
-        MEDIUM = "medium"
         HIGH = "high"
     
     @staticmethod

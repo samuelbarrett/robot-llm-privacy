@@ -13,15 +13,15 @@ from retico_whisperasr import WhisperASRModule
 from retico_speechbraintts import SpeechBrainTTSModule
 from retico_ollama import OllamaModule
 
-SOTA_IP = "10.151.63.77"
-# SOTA_IP = "10.0.0.178"
+# SOTA_IP = "10.151.63.77"
+SOTA_IP = "10.0.0.178"
 HTTP_PORT = "8080"
 MIC_UDP_PORT = 52001
 SPEAKER_UDP_PORT = 52002
 MIC_BUFFER_MS = 20
 AUDIO_GATE_SLEEP_INTERVAL = 0.001
 DIALOG_MODEL = "llama3.2:1b"
-PRIVACY_SCANNER_MODEL = "gemma3:270m"
+PRIVACY_SCANNER_MODEL = "qwen3:0.6b"
 DIALOG_SYSTEM_ROLE = Path("config/dialog_system_role.txt").read_text(encoding="utf-8").strip()
 PRIVACY_SCANNER_SYSTEM_ROLE = Path("config/privacy_scanner_system_role.txt").read_text(encoding="utf-8").strip()
 
@@ -37,7 +37,7 @@ text_callback = retico_core.debug.CallbackModule(callback=text_candidate_callbac
 asr = WhisperASRModule()
 tts = SpeechBrainTTSModule(language="en")
 audio_filter = AudioGatingModule(tts, sleep_interval=AUDIO_GATE_SLEEP_INTERVAL)
-privacy_scanner = PrivacyScannerModule(mode="llm", model=PRIVACY_SCANNER_MODEL, system_prompt=PRIVACY_SCANNER_SYSTEM_ROLE)
+privacy_scanner = PrivacyScannerModule(mode="llm", model=PRIVACY_SCANNER_MODEL, system_prompt=PRIVACY_SCANNER_SYSTEM_ROLE, debug=True)
 llm_forwarder = ConditionalModule(condition=LLM_PATH_CONDITION)
 tts_forwarder = ConditionalModule(condition=TTS_PATH_CONDITION)
 

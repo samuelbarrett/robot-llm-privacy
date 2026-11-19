@@ -53,13 +53,12 @@ class DialogManagerModule(AbstractModule):
     def process_update(self, update_message: UpdateMessage):
         for iu, ut in update_message:
             if ut == UpdateType.ADD:
-                print(
-                    f"{self.name()}: Received ADD IU: {iu.text}, severity: {iu.get_severity()}"
-                )
                 self.current_input.append(iu)
                 if iu.has_disclosure() and not self.disclosure_handling:
                     self.interrupt_and_redirect(severity=iu.get_severity())
                     self.disclosure_handling = True
+            if ut == UpdateType.REVOKE:
+                self.revoke(iu)
             if ut == UpdateType.COMMIT:
                 current = " ".join([iu.text for iu in self.current_input])
                 print(f"{self.name()}: Received COMMIT for current input: {current}")
