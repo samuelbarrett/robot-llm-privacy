@@ -5,6 +5,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 version_file = "sota_retico/_version.py"
 
+[tool.setuptools.packages.find]
+where = [".", "src"]
+include = ["sota_retico*", "apps*", "modules*", "classes*"]
+
 [project]
 name = "sota_retico"
 dynamic=["version"]

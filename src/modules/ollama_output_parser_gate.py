@@ -1,16 +1,24 @@
+import threading
+
 from retico_core import AbstractModule, UpdateMessage, UpdateType
 from retico_core.text import TextIU
 from retico_ollama import ResponseEndIU
 
 """
 Parse output from the retico-ollama module to produce clean TextIU-based update messages, dropping the custom ResponseEndIU which other modules (e.g., retico-speechbraintts) do not handle.
+Provides a gate function to open/close the flow of text downstream, used by the dialog manager.
 """
 
-class OllamaOutputParser(AbstractModule):
+class OllamaOutputParserGate(AbstractModule):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.gate_open = threading.Event()
+        self.gate_open.set()
 
     @staticmethod
     def name():
-        return "OllamaOutputParser"
+        return "OllamaOutputParserGate"
 
     @staticmethod
     def description():
@@ -23,6 +31,12 @@ class OllamaOutputParser(AbstractModule):
     @staticmethod
     def output_iu():
         return TextIU
+    
+    def set_gate_open(self, set: bool):
+        if set:
+            self.gate_open.set()
+        else:
+            self.gate_open.clear()
 
     def process_update(self, update_message):
         """
@@ -42,6 +56,9 @@ class OllamaOutputParser(AbstractModule):
                     for current_iu in self.current_output:
                         um.add_iu(current_iu, UpdateType.ADD)
                     um.add_iu(iu, UpdateType.COMMIT)
+                    
+                    self.gate_open.wait()  # block until gate is open
+                    print(f"{self.name()}: sending message: '{' '.join([iu.text for iu in self.current_output])}'")
                     self.append(um)
                     self.current_output = []
                     break

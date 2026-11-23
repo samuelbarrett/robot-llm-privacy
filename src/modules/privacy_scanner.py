@@ -121,9 +121,6 @@ class PrivacyScannerModule(AbstractModule):
                         commit_iu = self.create_iu()
                         commit_iu.set_text("")
                         um.add_iu(commit_iu, UpdateType.COMMIT)
-                    
-                    text = " ".join([iu.text for iu, ut in batch])
-                    print(f"{self.name()}: sent message: '{text}'")
 
                     self.append(um)
                     batch = []

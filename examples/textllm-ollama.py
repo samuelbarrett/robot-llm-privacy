@@ -8,7 +8,7 @@ from retico_huggingfacelm.huggingface_lm_module import HuggingfaceLMModule
 from retico_huggingfacelm.huggingface_lm_client import HuggingfaceLMClient
 from retico_ollama import OllamaModule
 
-from src.modules.ollama_output_parser import OllamaOutputParser
+from modules.ollama_output_parser_gate import OllamaOutputParserGate
 from sota_retico.debug_utils import text_candidate_callback
 from sota_retico.audio_filter import AudioGatingModule
 from sota_retico import SotaMicrophoneModule
@@ -45,7 +45,7 @@ ollama_module = OllamaModule(
     system_prompt="You are a grumpy Wizard who talks very little. Limit your responses to 1 short sentence.",
     temperature=0.2,
 )
-ollama_text_parser_module = OllamaOutputParser()
+ollama_text_parser_module = OllamaOutputParserGate()
 print("Done")
 
 self_filter_module = AudioGatingModule(tts_module, sleep_interval=0.001)

@@ -1,9 +1,18 @@
+import random
+import threading
+import time
+
 from retico_core import AbstractModule, UpdateMessage, UpdateType
-from retico_core.text import TextIU
+from retico_core.text import SpeechRecognitionIU, TextIU
 from sota_thinclient import ConnectionManager
 
 from classes.conditional_update_message import ConditionalUpdateMessage
+from classes.interruption import (
+    HighSeverityRobotInterruption,
+    LowSeverityRobotInterruption,
+)
 from classes.privacy_text_iu import PrivacyTextIU
+from modules.ollama_output_parser_gate import OllamaOutputParserGate
 
 """
 DialogManagerModule
@@ -13,22 +22,31 @@ It receives ASR input and other dialog information (e.g., whether private inform
 and uses a rule-based approach to determine the appropriate response, which is executed by downstream LLM and TTS modules.
 """
 
+INTERRUPTION_MAX_WAIT_FOR_EXPLANATION_S = 5.0
 
 PROMPT_USER_SPEECH = "User said: {text}"
-INTERRUPTION_TEXT = "Hey! Sorry, I don't think I should know about that."
-PROMPT_HANDLE_DISCLOSURE = (
+PROMPT_REDIRECT_TOPIC = (
     "Redirect conversation topic to a previous topic by asking a question."
 )
 
 
 class DialogManagerModule(AbstractModule):
-    def __init__(self, sota: ConnectionManager, llm_path: str, tts_path: str, **kwargs):
+    def __init__(
+        self,
+        sota: ConnectionManager,
+        gate_module: OllamaOutputParserGate,
+        llm_path: str,
+        tts_path: str,
+        **kwargs,
+    ):
         super().__init__()
         self.sota = sota
+        self.llm_gate_module: OllamaOutputParserGate = gate_module
         self.llm_path = llm_path
         self.tts_path = tts_path
-        self.disclosure_handling = False
         self.current_input = []
+
+        self.active_interruption = None
 
     @staticmethod
     def name():
@@ -40,59 +58,82 @@ class DialogManagerModule(AbstractModule):
 
     @staticmethod
     def input_ius():
-        return PrivacyTextIU
+        return PrivacyTextIU, SpeechRecognitionIU
 
     @staticmethod
     def output_iu():
         return TextIU
-    
+
     def run(self):
         super().run()
         self.send_message("Hi there! How are you doing today?", self.tts_path)
 
     def process_update(self, update_message: UpdateMessage):
         for iu, ut in update_message:
-            if ut == UpdateType.ADD:
-                self.current_input.append(iu)
-                if iu.has_disclosure() and not self.disclosure_handling:
-                    self.interrupt_and_redirect(severity=iu.get_severity())
-                    self.disclosure_handling = True
-            if ut == UpdateType.REVOKE:
-                self.revoke(iu)
-            if ut == UpdateType.COMMIT:
-                current = " ".join([iu.text for iu in self.current_input])
-                print(f"{self.name()}: Received COMMIT for current input: {current}")
-                if not self.disclosure_handling:
-                    prompt = " ".join([iu.text for iu in self.current_input])
-                    self.respond(prompt)
-                self.current_input = []
-                self.disclosure_handling = False
+            if isinstance(iu, PrivacyTextIU):
+                if ut == UpdateType.ADD:
+                    self.interruption_finalized = False
+                    self.current_input.append(iu)
+                    if iu.has_disclosure() and not self.active_interruption:
+                        self.issue_interruption(iu.get_severity())
+                if ut == UpdateType.REVOKE:
+                    self.revoke(iu)
+                if ut == UpdateType.COMMIT:
+                    current = " ".join([iu.text for iu in self.current_input])
+                    print(f"{self.name()}: COMMIT: {current}")
+                    if self.active_interruption:
+                        self.finalize_interruption()
+                    else:
+                        prompt = " ".join([iu.text for iu in self.current_input])
+                        print(f"{self.name()}: Sending prompt to LLM: {prompt}")
+                        self.respond(prompt)
+                    self.current_input = []
+            elif isinstance(iu, SpeechRecognitionIU):
+                # check for end of utterance to signal interruption logic
+                if ut == UpdateType.COMMIT:
+                    if self.active_interruption:
+                        self.finalize_interruption()
 
     def respond(self, prompt_input: str):
         """
         Respond to the user's speech input.
         """
         # TODO: call motion speaking
-        # TODO: send context to LLM to generate response
         prompt = PROMPT_USER_SPEECH.format(text=prompt_input)
         self.send_message(prompt, self.llm_path)
 
-    def interrupt_and_redirect(
+    def issue_interruption(
         self,
         severity: PrivacyTextIU.DisclosureSeverity = PrivacyTextIU.DisclosureSeverity.LOW,
     ):
         """
         Interrupt the current conversation flow and redirect the topic.
         """
-        print(f"{self.name()}: Interrupting conversation due to privacy disclosure with severity: {severity}")
+        print(f"{self.name()}: Interrupt, severity={severity}")
 
-        # 1. interrupt the user
-        # TODO: call motion interrupt
-        self.send_message(INTERRUPTION_TEXT, self.tts_path)
+        if not self.active_interruption:
+            self.active_interruption = (
+                LowSeverityRobotInterruption(self)
+                if severity == PrivacyTextIU.DisclosureSeverity.LOW
+                else HighSeverityRobotInterruption(self)
+            )
+            self.active_interruption.start()
 
-        # 2. handle the disclosure
-        # TODO: call LLM to stop generating response
-        self.send_message(PROMPT_HANDLE_DISCLOSURE, self.llm_path)
+            # generate topic redirection, but gate LLM output while interruption is active to avoid sending topic redirection while the user (or robot) is still speaking
+            self.llm_gate_module.set_gate_open(False)
+            self.send_message(PROMPT_REDIRECT_TOPIC, self.llm_path)
+        else:
+            print(
+                f"{self.name()}: Interruption already active! Ignoring new interruption request."
+            )
+
+    def finalize_interruption(self):
+        if self.active_interruption:
+            self.active_interruption.handle_event("end_of_utterance")
+            self.llm_gate_module.set_gate_open(
+                True
+            )  # end of utterance, now open gate for topic redirection
+            self.active_interruption = None
 
     def send_message(self, text, condition):
         um = ConditionalUpdateMessage(condition=condition)
