@@ -130,9 +130,6 @@ class DialogManagerModule(AbstractModule):
     def finalize_interruption(self):
         if self.active_interruption:
             self.active_interruption.handle_event("end_of_utterance")
-            self.llm_gate_module.set_gate_open(
-                True
-            )  # end of utterance, now open gate for topic redirection
             self.active_interruption = None
 
     def send_message(self, text, condition):

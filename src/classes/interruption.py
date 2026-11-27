@@ -61,6 +61,7 @@ class LowSeverityRobotInterruption(RobotInterruption):
         if event == "end_of_utterance" and time.monotonic() - self.start_time <= LOW_SEVERITY_INTERRUPTION_MAX_WAIT_FOR_EXPLANATION_S:
             self.done = True
             self.dm.send_message(random.choice(LOW_EXPLANATION_TEXTS), self.dm.tts_path)
+            self.dm.llm_gate_module.set_gate_open(True)
 
 
 class HighSeverityRobotInterruption(RobotInterruption):
@@ -87,6 +88,7 @@ class HighSeverityRobotInterruption(RobotInterruption):
             self.done = True
             self.stop_event.set()
             self.dm.send_message(random.choice(HIGH_EXPLANATION_TEXTS), self.dm.tts_path)
+            self.dm.llm_gate_module.set_gate_open(True)
             
         elif event == "interrupt_again":
             if not self.done:

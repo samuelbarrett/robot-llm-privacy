@@ -1,4 +1,4 @@
-from retico_core import AbstractModule, UpdateMessage
+from retico_core import AbstractModule, UpdateMessage, UpdateType
 from retico_core.text import TextIU
 
 from classes.conditional_update_message import ConditionalUpdateMessage
@@ -27,6 +27,10 @@ class ConditionalModule(AbstractModule):
         If the condition is met, set the condition_met flag to True.
         """
         if update_message.get_condition() == self.conditional_update_message_type:
+            if self.conditional_update_message_type == "tts":
+                # log TTS output
+                prompt = " ".join([iu.text for iu, ut in update_message if ut == UpdateType.ADD])
+                print(f"{self.name()}: {self.conditional_update_message_type}: {prompt}")
             um = UpdateMessage()
             for iu, ut in update_message:
                 um.add_iu(iu, ut)

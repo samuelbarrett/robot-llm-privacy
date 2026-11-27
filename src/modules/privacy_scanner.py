@@ -127,15 +127,15 @@ class PrivacyScannerModule(AbstractModule):
             except queue.Empty:
                 continue
 
-    def disclosure_scan_text(self, batch) -> bool:
+    def disclosure_scan_text(self, batch) -> PrivacyTextIU.DisclosureSeverity:
         # Simple keyword-based detection for privacy-sensitive information
         text = " ".join([iu.text for iu, ut in batch])
         for word in PRIVACY_VIOLATION_WORDS:
             if word in text.lower():
-                return True
-        return False
+                return PrivacyTextIU.DisclosureSeverity.LOW
+        return PrivacyTextIU.DisclosureSeverity.NONE
 
-    def disclosure_scan_llm(self, batch) -> bool:
+    def disclosure_scan_llm(self, batch) -> PrivacyTextIU.DisclosureSeverity:
         # use ollama chat API to detect privacy-sensitive information in the text
         text = " ".join([iu.text for iu, ut in batch])
         start_time = time.perf_counter()
@@ -155,9 +155,9 @@ class PrivacyScannerModule(AbstractModule):
             print(f"{self.name()}: Inference on {len(batch)} IUs took {end_time - start_time:.4f} seconds.")
         
         result = PrivacyResult.model_validate_json(response.message.content)
-        return result.has_privacy_violation
+        return result.privacy_violation
 
-    def populate_update_message(self, um: UpdateMessage, batch: list, disclosure_detected: bool) -> UpdateMessage:
+    def populate_update_message(self, um: UpdateMessage, batch: list, disclosure_detected: PrivacyTextIU.DisclosureSeverity) -> UpdateMessage:
         for iu, ut in batch:
             update_iu: PrivacyTextIU = self.create_iu(iu)
             update_iu.set_text(iu.text)
@@ -180,4 +180,4 @@ class PrivacyResult(BaseModel):
     """
     Simple pydantic class for LLM structured output
     """
-    has_privacy_violation: bool
+    privacy_violation: PrivacyTextIU.DisclosureSeverity = PrivacyTextIU.DisclosureSeverity.NONE

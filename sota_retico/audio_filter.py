@@ -52,10 +52,10 @@ class AudioGatingModule(AbstractModule):
 
         if talking:
             if self._is_talking is None or not self._is_talking:
-                print("is speaking changed to: true")
+                #print("is speaking changed to: true")
                 self._is_talking = True
         elif self._is_talking is None or self._is_talking:
-            print("is speaking changed to: false")
+            #print("is speaking changed to: false")
             self._is_talking = False
 
     @staticmethod
